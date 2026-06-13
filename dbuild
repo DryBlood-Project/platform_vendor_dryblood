@@ -1,0 +1,100 @@
+#!/bin/bash
+
+help() {
+   echo "You're building for $DEVICE_CODENAME"
+   echo "pull -> pull device trees"
+   echo "build -> pass \"clean\" to remove out directory and make clean build. It is recommended for users and offical maintainers to run \"build\" with \"clean\" option"
+   echo "dev-build -> fast build (developers only), pass \"clean\" to remove out directory"
+   echo "make-ota -> create signed ota package, pass build number if you want to sign build with diffrent build number then the default (default build number is $BUILD_NUMBER)"
+}
+
+pull_device_trees() {
+   if ! adevtool &> /dev/null; then
+      yarn --cwd vendor/adevtool/ install || return 1
+   fi
+   adevtool generate-all -d "$DEVICE_CODENAME"
+}
+
+source_envsetup() {
+   if [ -z "$BUILD_NUMBER" ]; then 
+      if ! source ./build/envsetup.sh; then
+         echo "Failed to include \"envsetup.sh\""
+         echo "Are you sure you are in ROM source directory?"
+         return 1
+      fi
+   fi
+   return 0
+}
+
+lunch_device() {
+   lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE" || return 1
+   return 0
+}
+
+build() {
+   lunch_device && return 1
+   if [ "$1" == "clean" ]; then
+      rm -rf "./out"
+   fi
+   m vendorbootimage vendorkernelbootimage target-files-package
+}
+
+developer_build() {
+   lunch_device && return 1
+   if [ "$1" == "clean" ]; then
+      rm -rf "./out"
+   fi
+   m
+}
+
+make_ota_tools() {
+   lunch_device && return 1
+   m otatools-package
+   script/finalize.sh
+}
+
+sign_ota() {
+   BUILD_NUMBER_TO_SIGN="$BUILD_NUMBER"
+   if [ -n "$1" ]; then
+      BUILD_NUMBER_TO_SIGN="$1"
+   fi
+   script/generate-release.sh "$DEVICE_CODENAME" "$BUILD_NUMBER_TO_SIGN"
+}
+
+install_ota() {
+   OTA_PATH="./releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER"
+   OTA_FILENAME="$DEVICE_CODENAME-ota_update-$BUILD_NUMBER.zip"
+   if [ ! -d "./releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER" ]; then
+      echo "No OTA was found, please first build and sign your package"
+   fi
+   adb sideload "$OTA_PATH/$OTA_FILENAME"
+}
+
+if [ -z "$BUILD_TYPE" ]; then
+   export BUILD_TYPE="user"
+fi
+
+if [ -z "$DEVICE_CODENAME" ]; then
+   read -rp "Enter device codename (e.g. frankel): " DEVICE_CODENAME
+   export DEVICE_CODENAME
+fi
+
+source_envsetup
+
+if [ "$1" == "help" ] || [ -z "$1" ]; then
+   help
+   return 0
+fi
+
+if [ "$1" == "pull" ]; then
+   pull_device_trees
+elif [ "$1" == "build" ]; then
+   build "$2"
+elif [ "$1" == "dev-build" ]; then
+   developer_build "$2"
+elif [ "$1" == "make-ota" ]; then
+   make_ota_tools
+   sign_ota "$2"
+elif [ "$1" == "install" ]; then
+   install_ota
+fi
