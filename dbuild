@@ -8,13 +8,6 @@ help() {
    echo "make-ota -> create signed ota package, pass build number if you want to sign build with diffrent build number then the default (default build number is $BUILD_NUMBER)"
 }
 
-pull_device_trees() {
-   if ! adevtool &> /dev/null; then
-      yarn --cwd vendor/adevtool/ install || return 1
-   fi
-   adevtool generate-all -d "$DEVICE_CODENAME"
-}
-
 source_envsetup() {
    if [ -z "$BUILD_NUMBER" ]; then 
       if ! source ./build/envsetup.sh; then
@@ -29,6 +22,14 @@ source_envsetup() {
 lunch_device() {
    lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE" || return 1
    return 0
+}
+
+pull_device_trees() {
+   if ! adevtool &> /dev/null; then
+      yarn --cwd vendor/adevtool/ install || return 1
+      source_envsetup
+   fi
+   adevtool generate-all -d "$DEVICE_CODENAME"
 }
 
 build() {
