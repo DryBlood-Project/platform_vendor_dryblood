@@ -26,31 +26,30 @@ lunch_device() {
 
 pull_device_trees() {
    if ! adevtool &> /dev/null; then
-      yarn --cwd vendor/adevtool/ install || return 1
-      source_envsetup
+      yarn --cwd vendor/adevtool/ install || return 8
    fi
-   adevtool generate-all -d "$DEVICE_CODENAME"
+   ./vendor/adevtool/bin/run generate-all -d "$DEVICE_CODENAME"
 }
 
 build() {
-   lunch_device && return 1
+   lunch_device || return 4
    if [ "$1" == "clean" ]; then
       rm -rf "./out"
    fi
-   m vendorbootimage vendorkernelbootimage target-files-package
+   m vendorbootimage vendorkernelbootimage target-files-package -j$(nproc --all)
 }
 
 developer_build() {
-   lunch_device && return 1
+   lunch_device || return 4
    if [ "$1" == "clean" ]; then
       rm -rf "./out"
    fi
-   m
+   m -j$(nproc --all)
 }
 
 make_ota_tools() {
-   lunch_device && return 1
-   m otatools-package
+   lunch_device || return 4
+   m otatools-package -j$(nproc --all)
    script/finalize.sh
 }
 
@@ -80,12 +79,12 @@ if [ -z "$DEVICE_CODENAME" ]; then
    export DEVICE_CODENAME
 fi
 
-source_envsetup
-
 if [ "$1" == "help" ] || [ -z "$1" ]; then
    help
    return 0
 fi
+
+source_envsetup || return 5
 
 if [ "$1" == "pull" ]; then
    pull_device_trees
