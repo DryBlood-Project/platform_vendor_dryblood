@@ -11,7 +11,8 @@ help() {
    echo "pull -> pull device trees"
    echo "build -> pass \"clean\" to remove out directory and make clean build. It is recommended for users and offical maintainers to run \"build\" with \"clean\" option"
    echo "dev-build -> fast build (developers only), pass \"clean\" to remove out directory"
-   echo "make-ota -> create signed ota package, pass build number if you want to sign build with diffrent build number then the default (default build number is $BUILD_NUMBER)"
+   echo "make-signed-ota -> create signed ota package, pass build number if you want to sign build with diffrent build number then the default (default build number is $BUILD_NUMBER)"
+   echo "make-sihning-keys -> generate signing keys in system directory or safly in your home directory"
 }
 
 source_envsetup() {
@@ -100,7 +101,10 @@ make_siging_keys() {
    read -rp "Do you want to create keys in safe way at your home directory\nand then link them in to system source to avoid lossing them?[Y/n]:" choice
    case "$choice" in
       y|Y) 
-
+         generate_keys $HOME
+      break;;
+      *)
+         generate_keys $(pwd)
       break;;
    esac
 }
@@ -136,9 +140,11 @@ elif [ "$1" == "build" ]; then
    build "$2"
 elif [ "$1" == "dev-build" ]; then
    developer_build "$2"
-elif [ "$1" == "make-ota" ]; then
+elif [ "$1" == "make-signed-ota" ]; then
    make_ota_tools
    sign_ota "$2"
 elif [ "$1" == "install" ]; then
    install_ota
+elif [ "$1" == "make-signing-keys" ]; then
+   make_siging_keys
 fi
