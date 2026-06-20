@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ROMPATH="$(pwd)"
-if [ "$ROMPATH" != *"DryBloodOS"* ]; then
+if [[ "$ROMPATH" != *"DryBloodOS"* ]]; then
    echo "Please go into rom directory!!!"
    return 6
 fi
@@ -43,7 +43,7 @@ build() {
    if [ "$1" == "clean" ]; then
       rm -rf "./out"
    fi
-   m vendorbootimage vendorkernelbootimage target-files-package -j$(nproc --all)
+   m vendorbootimage vendorkernelbootimage target-files-package -j"$(nproc --all)"
 }
 
 developer_build() {
@@ -51,12 +51,12 @@ developer_build() {
    if [ "$1" == "clean" ]; then
       rm -rf "$ROMPATH/out"
    fi
-   m -j$(nproc --all)
+   m -j"$(nproc --all)"
 }
 
 make_ota_tools() {
    lunch_device || return 4
-   m otatools-package -j$(nproc --all)
+   m otatools-package -j"$(nproc --all)"
    "$ROMPATH/script/finalize.sh"
 }
 
@@ -80,8 +80,7 @@ generate_keys() {
    if [ ! -d "$DIRPATH" ]; then
       mkdir -p "$DIRPATH"
    fi
-
-   cd "$DIRPATH"
+   cd "$DIRPATH" || return 1
    "$ROMPATH/development/tools/make_key" releasekey "/CN=$CN/"
    "$ROMPATH/development/tools/make_key" platform "/CN=$CN/"
    "$ROMPATH/development/tools/make_key" shared "/CN=$CN/"
@@ -93,7 +92,7 @@ generate_keys() {
    "$ROMPATH/development/tools/make_key" nfc "/CN=$CN/"
    openssl genrsa 4096 | openssl pkcs8 -topk8 -scrypt -out avb.pem
    "$ROMPATH/external/avb/avbtool.py" extract_public_key --key avb.pem --output avb_pkmd.bin
-   cd "$ROMPATH"
+   cd "$ROMPATH" || return 1
 }
 
 make_siging_keys() {
@@ -101,11 +100,11 @@ make_siging_keys() {
    read -rp "Do you want to create keys in safe way at your home directory\nand then link them in to system source to avoid lossing them?[Y/n]:" choice
    case "$choice" in
       y|Y) 
-         generate_keys $HOME
-      break;;
+         generate_keys "$HOME" || return 7
+      ;;
       *)
-         generate_keys $(pwd)
-      break;;
+         generate_keys "$(pwd)" || return 7
+      ;;
    esac
 }
 
