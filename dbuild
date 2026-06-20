@@ -1,6 +1,6 @@
 #!/bin/bash
 
-local ROMPATH="$(pwd)"
+ROMPATH="$(pwd)"
 if [ "$ROMPATH" != *"DryBlood"* ]; then
    echo "Please go into rom directory!!!"
    return 6
