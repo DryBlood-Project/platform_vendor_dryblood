@@ -1,5 +1,11 @@
 #!/bin/bash
 
+local ROMPATH="$(pwd)"
+if [ "$ROMPATH" != *"DryBlood"* ]; then
+   echo "Please go into rom directory!!!"
+   return 6
+fi
+
 help() {
    echo "You're building for $DEVICE_CODENAME"
    echo "pull -> pull device trees"
@@ -25,10 +31,10 @@ lunch_device() {
 }
 
 pull_device_trees() {
-   if ! adevtool &> /dev/null; then
+   if ! "$ROMPATH/vendor/adevtool/bin/run" &> /dev/null; then
       yarn --cwd vendor/adevtool/ install || return 8
    fi
-   ./vendor/adevtool/bin/run generate-all -d "$DEVICE_CODENAME"
+   "$ROMPATH/vendor/adevtool/bin/run" generate-all -d "$DEVICE_CODENAME"
 }
 
 build() {
@@ -42,7 +48,7 @@ build() {
 developer_build() {
    lunch_device || return 4
    if [ "$1" == "clean" ]; then
-      rm -rf "./out"
+      rm -rf "$ROMPATH/out"
    fi
    m -j$(nproc --all)
 }
@@ -50,7 +56,7 @@ developer_build() {
 make_ota_tools() {
    lunch_device || return 4
    m otatools-package -j$(nproc --all)
-   script/finalize.sh
+   "$ROMPATH/script/finalize.sh"
 }
 
 sign_ota() {
@@ -58,13 +64,51 @@ sign_ota() {
    if [ -n "$1" ]; then
       BUILD_NUMBER_TO_SIGN="$1"
    fi
-   script/generate-release.sh "$DEVICE_CODENAME" "$BUILD_NUMBER_TO_SIGN"
+   "$ROMPATH/script/generate-release.sh" "$DEVICE_CODENAME" "$BUILD_NUMBER_TO_SIGN"
+}
+
+generate_keys() {
+   local CN="GrapheneOS"
+   local DIRNAME="$1"
+   local DIRPATH
+   if [ -z "$DIRNAME" ]; then
+      DIRPATH="$(pwd)/dryblood_device_keys/$DEVICE_CODENAME"
+   else 
+      DIRPATH="$DIRNAME/dryblood_device_keys/$DEVICE_CODENAME"
+   fi
+   if [ ! -d "$DIRPATH" ]; then
+      mkdir -p "$DIRPATH"
+   fi
+
+   cd "$DIRPATH"
+   "$ROMPATH/development/tools/make_key" releasekey "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" platform "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" shared "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" media "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" networkstack "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" bluetooth "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" sdk_sandbox "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" gmscompat_lib "/CN=$CN/"
+   "$ROMPATH/development/tools/make_key" nfc "/CN=$CN/"
+   openssl genrsa 4096 | openssl pkcs8 -topk8 -scrypt -out avb.pem
+   "$ROMPATH/external/avb/avbtool.py" extract_public_key --key avb.pem --output avb_pkmd.bin
+   cd "$ROMPATH"
+}
+
+make_siging_keys() {
+   local choice
+   read -rp "Do you want to create keys in safe way at your home directory\nand then link them in to system source to avoid lossing them?[Y/n]:" choice
+   case "$choice" in
+      y|Y) 
+
+      break;;
+   esac
 }
 
 install_ota() {
-   OTA_PATH="./releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER"
+   OTA_PATH="$ROMPATH/releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER"
    OTA_FILENAME="$DEVICE_CODENAME-ota_update-$BUILD_NUMBER.zip"
-   if [ ! -d "./releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER" ]; then
+   if [ ! -d "$ROMPATH/releases/$BUILD_NUMBER/release-$DEVICE_CODENAME-$BUILD_NUMBER" ]; then
       echo "No OTA was found, please first build and sign your package"
    fi
    adb sideload "$OTA_PATH/$OTA_FILENAME"
