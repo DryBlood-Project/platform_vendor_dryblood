@@ -1,12 +1,6 @@
 #!/bin/bash
 
 help() {
-   local CRY="\033[1;33m"
-   local CRG="\033[1;32m"
-   local CRB="\033[1;34m"
-   local CRC="\033[0;36m"
-   local NC="\033[0m"
-
    echo -e "${CRB}=========================================================${NC}"
    echo -e " Target Device: ${CRY}$DEVICE_CODENAME${NC}"
    echo -e "${CRB}=========================================================${NC}"
@@ -14,7 +8,6 @@ help() {
    echo -e "${CRY}Usage:${NC} dtool --build ${CRG}[command]${NC} [options]"
    echo ""
    echo -e "${CRY}Commands:${NC}"
-   
    echo -e "  ${CRG}pull${NC}\t\t\tPull device trees."
    echo ""
    echo -e "  ${CRG}build${NC} [clean]\t\tFull clean build (Recommended for production)."
@@ -25,27 +18,28 @@ help() {
    echo ""
    echo -e "  ${CRG}make-signing-keys${NC}\tGenerate signing keys in system or home directory."
    echo ""
-   echo -e "  ${CRG}make-signed-ota${NC} [num]\tCreate a signed OTA package."
+   echo -e "  ${CRG}make-signed-ota${NC} [number]\tCreate a signed OTA package."
    echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
    echo ""
-   echo -e "  ${CRG}install${NC} [num]\t\tSideload OTA to a connected device."
+   echo -e "  ${CRG}install${NC} [number]\t\tSideload OTA to a connected device."
    echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
    echo ""
 }
 
 source_envsetup() {
    if [ -z "$BUILD_NUMBER" ]; then 
-      if ! source ./build/envsetup.sh; then
+      if ! source $ROMPATH/build/envsetup.sh; then
          echo "Failed to include \"envsetup.sh\""
          echo "Are you sure you are in ROM source directory?"
+         unset BUILD_NUMBER
+         return 1
+      fi
+      if ! lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE"; then
+         echo "Failed to lunch $DEVICE_CODENAME"
+         unset BUILD_NUMBER
          return 1
       fi
    fi
-   return 0
-}
-
-lunch_device() {
-   lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE" || return 1
    return 0
 }
 
@@ -57,7 +51,6 @@ pull_device_trees() {
 }
 
 build() {
-   lunch_device || return 4
    if [ "$1" == "clean" ]; then
       rm -rf "./out"
    fi
@@ -65,7 +58,6 @@ build() {
 }
 
 developer_build() {
-   lunch_device || return 4
    if [ "$1" == "clean" ]; then
       rm -rf "$ROMPATH/out"
    fi
@@ -73,7 +65,6 @@ developer_build() {
 }
 
 make_ota_tools() {
-   lunch_device || return 4
    m otatools-package -j"$(nproc --all)"
    "$ROMPATH/script/finalize.sh"
 }
@@ -154,34 +145,38 @@ install_ota() {
 }
 
 if [ -z "$BUILD_TYPE" ]; then
-   export BUILD_TYPE="user"
+   BUILD_TYPE="user"
    save_config_from_data
 fi
 
 if [ -z "$DEVICE_CODENAME" ]; then
    read -rp "Enter device codename (e.g. frankel): " DEVICE_CODENAME
-   export DEVICE_CODENAME
    save_config_from_data
-fi
-
-if [ "$1" == "help" ] || [ -z "$1" ]; then
-   help
-   return 0
 fi
 
 source_envsetup || return 5
 
-if [ "$1" == "pull" ]; then
-   pull_device_trees
-elif [ "$1" == "build" ]; then
-   build "$2"
-elif [ "$1" == "dev-build" ]; then
-   developer_build "$2"
-elif [ "$1" == "make-signing-keys" ]; then
-   make_signing_keys
-elif [ "$1" == "make-signed-ota" ]; then
-   make_ota_tools
-   sign_ota "$2"
-elif [ "$1" == "install" ]; then
-   install_ota "$2"
-fi
+case "$1" in
+   "pull")
+      pull_device_trees
+   ;;
+   "build")
+      build "$2"
+   ;;
+   "dev-build")
+      developer_build "$2"
+   ;;
+   "make-signing-keys")
+      make_signing_keys
+   ;;
+   "make-signed-ota")
+      make_ota_tools
+      sign_ota "$2"
+   ;;
+   "install")
+      install_ota "$2"
+   ;;
+   *)
+      help
+   ;;
+esac

@@ -1,4 +1,3 @@
-#!/bin/bash
-
 DEVICE_CODENAME=""
 BUILD_TYPE=""
+REMOTE_UPDATE_TAG=""
