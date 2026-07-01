@@ -1,0 +1,4 @@
+#!/bin/bash
+
+DEVICE_CODENAME=""
+BUILD_TYPE=""

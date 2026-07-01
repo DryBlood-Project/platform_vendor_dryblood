@@ -1,19 +1,36 @@
 #!/bin/bash
 
-ROMPATH="$(pwd)"
-if [[ "$ROMPATH" != *"DryBloodOS"* ]]; then
-   echo "Please go into rom directory!!!"
-   return 6
-fi
-
 help() {
-   echo "You're building for $DEVICE_CODENAME"
-   echo "pull -> pull device trees"
-   echo "build -> pass \"clean\" to remove out directory and make clean build. It is recommended for users and offical maintainers to run \"build\" with \"clean\" option"
-   echo "dev-build -> fast build (developers only), pass \"clean\" to remove out directory"
-   echo "make-signing-keys -> generate signing keys in system directory or safly in your home directory"
-   echo "make-signed-ota -> create signed ota package, pass build number if you want to sign build with diffrent build number then the default (default build number is $BUILD_NUMBER)"
-   echo "install -> will install ota via sideload with build number $BUILD_NUMBER or a passed custom one as an argument to connected device"
+   local CRY="\033[1;33m"
+   local CRG="\033[1;32m"
+   local CRB="\033[1;34m"
+   local CRC="\033[0;36m"
+   local NC="\033[0m"
+
+   echo -e "${CRB}=========================================================${NC}"
+   echo -e " Target Device: ${CRY}$DEVICE_CODENAME${NC}"
+   echo -e "${CRB}=========================================================${NC}"
+   echo ""
+   echo -e "${CRY}Usage:${NC} dtool --build ${CRG}[command]${NC} [options]"
+   echo ""
+   echo -e "${CRY}Commands:${NC}"
+   
+   echo -e "  ${CRG}pull${NC}\t\t\tPull device trees."
+   echo ""
+   echo -e "  ${CRG}build${NC} [clean]\t\tFull clean build (Recommended for production)."
+   echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
+   echo ""
+   echo -e "  ${CRG}dev-build${NC} [clean]\tFast build (Developers only)."
+   echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
+   echo ""
+   echo -e "  ${CRG}make-signing-keys${NC}\tGenerate signing keys in system or home directory."
+   echo ""
+   echo -e "  ${CRG}make-signed-ota${NC} [num]\tCreate a signed OTA package."
+   echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
+   echo ""
+   echo -e "  ${CRG}install${NC} [num]\t\tSideload OTA to a connected device."
+   echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
+   echo ""
 }
 
 source_envsetup() {
@@ -138,11 +155,13 @@ install_ota() {
 
 if [ -z "$BUILD_TYPE" ]; then
    export BUILD_TYPE="user"
+   save_config_from_data
 fi
 
 if [ -z "$DEVICE_CODENAME" ]; then
    read -rp "Enter device codename (e.g. frankel): " DEVICE_CODENAME
    export DEVICE_CODENAME
+   save_config_from_data
 fi
 
 if [ "$1" == "help" ] || [ -z "$1" ]; then
