@@ -1,0 +1,5 @@
+prebuilt_etc {
+    name: "ota_bypass",
+    src: "dummy.bin",
+    sub_dir: "etc",
+}

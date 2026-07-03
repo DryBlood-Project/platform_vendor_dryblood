@@ -10,10 +10,10 @@ help() {
    echo -e "${CRY}Commands:${NC}"
    echo -e "  ${CRG}pull${NC}\t\t\tPull device trees."
    echo ""
-   echo -e "  ${CRG}build${NC} [clean]\t\tFull clean build (Recommended for production)."
+   echo -e "  ${CRG}normal${NC} [clean]\t\tFull clean build (Recommended for production)."
    echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
    echo ""
-   echo -e "  ${CRG}dev-build${NC} [clean]\tFast build (Developers only)."
+   echo -e "  ${CRG}fast${NC} [clean]\tFast build (Developers only)."
    echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
    echo ""
    echo -e "  ${CRG}make-signing-keys${NC}\tGenerate signing keys in system or home directory."
@@ -27,15 +27,11 @@ help() {
 }
 
 source_envsetup() {
-   if [ -z "$BUILD_NUMBER" ]; then 
-      if ! source $ROMPATH/build/envsetup.sh; then
+   if [ -z "$BUILD_NUMBER" ]; then
+      . "$LOCAL_PATH/repo.bash" check-for-update
+      if ! source "$ROMPATH/build/envsetup.sh"; then
          echo "Failed to include \"envsetup.sh\""
          echo "Are you sure you are in ROM source directory?"
-         unset BUILD_NUMBER
-         return 1
-      fi
-      if ! lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE"; then
-         echo "Failed to lunch $DEVICE_CODENAME"
          unset BUILD_NUMBER
          return 1
       fi
@@ -43,10 +39,27 @@ source_envsetup() {
    return 0
 }
 
+lunch_target_device() {
+   if ! lunch "$DEVICE_CODENAME-cur-$BUILD_TYPE"; then
+      echo "Failed to lunch $DEVICE_CODENAME"
+      unset BUILD_NUMBER
+      return 1
+   fi
+}
+
 pull_device_trees() {
    if ! "$ROMPATH/vendor/adevtool/bin/run" &> /dev/null; then
+      if ! yarn &> /dev/null; then
+         echo -e " ${CRY}WARNING${NC} yarn or yarnpkg is not installed on this device"
+         return 9
+      fi
       yarn --cwd vendor/adevtool/ install || return 8
    fi
+   if ! zip &> /dev/null; then
+      echo -e " ${CRY}WARNING${NC} zip is not installed on this device"
+      return 10
+   fi
+   echo -e " ${CRY}WARNING${NC} if you will get chrt error execute: \"${CR_L_GREEN}sudo setcap cap_sys_nice+ep $(which chrt)${NC}\""
    "$ROMPATH/vendor/adevtool/bin/run" generate-all -d "$DEVICE_CODENAME"
 }
 
@@ -146,12 +159,12 @@ install_ota() {
 
 if [ -z "$BUILD_TYPE" ]; then
    BUILD_TYPE="user"
-   save_config_from_data
+   save_config_to_data
 fi
 
 if [ -z "$DEVICE_CODENAME" ]; then
    read -rp "Enter device codename (e.g. frankel): " DEVICE_CODENAME
-   save_config_from_data
+   save_config_to_data
 fi
 
 source_envsetup || return 5
@@ -160,16 +173,19 @@ case "$1" in
    "pull")
       pull_device_trees
    ;;
-   "build")
+   "normal")
+      lunch_target_device
       build "$2"
    ;;
-   "dev-build")
+   "fast")
+      lunch_target_device
       developer_build "$2"
    ;;
    "make-signing-keys")
       make_signing_keys
    ;;
    "make-signed-ota")
+      lunch_target_device
       make_ota_tools
       sign_ota "$2"
    ;;
