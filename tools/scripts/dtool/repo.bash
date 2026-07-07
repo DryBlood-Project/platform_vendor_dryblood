@@ -22,7 +22,8 @@ help() {
     echo ""
     echo -e "  ${CRG}reset${NC}\t\t\tHard reset any local changes made to system."
     echo -e "               \t\t${CRY}Warning:${NC} This will wipe all uncommitted local edits."
-    echo -e "               \t\t${CRY}Warning:${NC} This will wipe all uncommitted local edits."
+    echo ""
+    echo -e "  ${CRG}check-for-update${NC}\tCheck if local remote is up to date."
     echo ""
 }
 
@@ -63,9 +64,9 @@ update_remote() {
 check_for_update() {
     echo -e "${CRB}=========================================================${NC}"
     if [ "$REMOTE_LOCAL_TAG" != "$REMOTE_LATEST_TAG" ]; then
-        echo -e " Remote Local Tag:  ${CRY}$REMOTE_LOCAL_TAG{NC} (${CRR}Outdated!${NC})"
+        echo -e " Remote Local Tag:  ${CRY}$REMOTE_LOCAL_TAG${NC} (${CRR}Outdated!${NC})"
         echo -e " Remote Latest Tag: ${CRY}$REMOTE_LATEST_TAG${NC}"
-        echo -e " Run \"${CRY}dtool --repo update${NC}\" to get the latest version."
+        echo -e " Run \"${CRY}. dtool --repo update${NC}\" to get the latest version."
     else
         echo -e " Remote Local Tag: ${CRY}$REMOTE_LOCAL_TAG${NC} (${CRG}Up to date${NC})"
     fi
@@ -85,7 +86,7 @@ reset_remote() {
     repo forall -c "git reset --hard && git clean -fdx"
 }
 
-if ! repo &> /dev/null; then
+if ! repo -h &> /dev/null; then
     echo -e " ${CRY}WARNING${NC} repo is not installed on this device"
     return 10
 fi

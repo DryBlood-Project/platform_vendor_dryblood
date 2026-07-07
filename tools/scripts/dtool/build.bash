@@ -8,21 +8,30 @@ help() {
    echo -e "${CRY}Usage:${NC} dtool --build ${CRG}[command]${NC} [options]"
    echo ""
    echo -e "${CRY}Commands:${NC}"
-   echo -e "  ${CRG}pull${NC}\t\t\tPull device trees."
+   echo -e "  ${CRG}pull${NC}\t\t\t\t\tPull device trees."
    echo ""
-   echo -e "  ${CRG}normal${NC} [clean]\t\tFull clean build (Recommended for production)."
-   echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
+   echo -e "  ${CRG}normal${NC} [clean]\t\t\tFull clean build (Recommended for production)."
+   echo -e "               \t\t\t\tWipes the ${CRC}out${NC} directory if 'clean' is passed."
    echo ""
-   echo -e "  ${CRG}fast${NC} [clean]\tFast build (Developers only)."
-   echo -e "               \t\tWipes the ${CRC}out/${NC} directory if 'clean' is passed."
+   echo -e "  ${CRG}fast${NC} [clean]\t\t\t\tFast build (Developers only)."
+   echo -e "               \t\t\t\tWipes the ${CRC}out${NC} directory if 'clean' is passed."
    echo ""
-   echo -e "  ${CRG}make-signing-keys${NC}\tGenerate signing keys in system or home directory."
+   echo -e "  ${CRG}make-signing-keys${NC}\t\t\tGenerate signing keys in system or home directory."
    echo ""
-   echo -e "  ${CRG}make-signed-ota${NC} [number]\tCreate a signed OTA package."
-   echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
+   echo -e "  ${CRG}make-signed-ota${NC} [number]\t\tCreate a signed OTA package."
+   echo -e "               \t\t\t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom argument)."
    echo ""
-   echo -e "  ${CRG}install${NC} [number]\t\tSideload OTA to a connected device."
-   echo -e "               \t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom arg)."
+   echo -e "  ${CRG}install${NC} [number]\t\t\tSideload OTA to a connected device."
+   echo -e "               \t\t\t\tTarget build: ${CRY}${BUILD_NUMBER}${NC} (or pass custom argument)."
+   echo ""
+   echo -e "  ${CRG}change-device${NC} [codename]\t\tChanges device for build system."
+   echo -e "               \t\t\t\tGet prompted or pass a custom argument."
+   echo ""
+   echo -e "  ${CRG}change-build-origin${NC} [(UN)OFFICIAL]\tChanges build origin."
+   echo -e "               \t\t\t\tGet prompted or pass a custom argument."
+   echo ""
+   echo -e "  ${CRG}change-build-type${NC} [user(debug)|eng]\tChanges build type."
+   echo -e "               \t\t\t\tGet prompted or pass a custom argument."
    echo ""
 }
 
@@ -117,6 +126,7 @@ generate_keys() {
    "$ROMPATH/development/tools/make_key" nfc "/CN=$CN/"
    openssl genrsa 4096 | openssl pkcs8 -topk8 -scrypt -out avb.pem
    "$ROMPATH/external/avb/avbtool.py" extract_public_key --key avb.pem --output avb_pkmd.bin
+   chmod 600 id_ed25519
    cd "$ROMPATH" || return 1
    return 0
 }
@@ -157,17 +167,49 @@ install_ota() {
    adb sideload "$OTA_PATH/$OTA_FILENAME"
 }
 
+change-device() {
+   local new_codename="$1"
+   if [ -z "$new_codename" ]; then
+      read -rp "Enter device codename (e.g. frankel): " new_codename
+   fi
+   DEVICE_CODENAME="$new_codename"
+   save_config_to_data
+}
+
+change-build-origin() {
+   local new_origin="$1"
+   if [ -z "$new_origin" ]; then
+      read -rp "Enter build origin [OFFICIAL|UNOFFICIAL]: " new_origin
+   fi
+   BUILD_ORIGIN_TYPE="$new_origin"
+   save_config_to_data
+   echo -e "${CRR}Remmember to edit \"packages/apps/Updater/res/values/config.xml\"${NC}"
+}
+
+change-build-type() {
+   local new_type="$1"
+   if [ -z "$new_type" ]; then
+      read -rp "Enter build type [user(debug)|eng]: " new_type
+   fi
+   BUILD_TYPE="$new_type"
+   save_config_to_data
+}
+
 if [ -z "$BUILD_TYPE" ]; then
    BUILD_TYPE="user"
    save_config_to_data
 fi
 
 if [ -z "$DEVICE_CODENAME" ]; then
-   read -rp "Enter device codename (e.g. frankel): " DEVICE_CODENAME
-   save_config_to_data
+   change-device
 fi
 
 source_envsetup || return 5
+
+if [ "$BUILD_ORIGIN_TYPE" == "OFFICIAL" ]; then
+   export OFFICIAL_BUILD=true
+   echo -e "${CRB}You are building OFFICIAL${NC}"
+fi
 
 case "$1" in
    "pull")
@@ -191,6 +233,15 @@ case "$1" in
    ;;
    "install")
       install_ota "$2"
+   ;;
+   "change-device")
+      change-device "$2"
+   ;;
+   "change-build-origin")
+      change-build-origin "$2"
+   ;;
+   "change-build-type")
+      change-build-type "$2"
    ;;
    *)
       help
